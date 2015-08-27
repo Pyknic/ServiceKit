@@ -27,11 +27,11 @@ import java.util.stream.Stream;
  *
  * @author Emil Forslund
  */
-public abstract class HttpServlet {
+public abstract class HttpServer {
 
     private final NanoHTTPD server;
     
-    protected HttpServlet(int port) {
+    protected HttpServer(int port) {
         server = new NanoHTTPD(port) {
 
             @Override
@@ -48,7 +48,7 @@ public abstract class HttpServlet {
                     return new Response(Status.BAD_REQUEST, "text/plain", ex.getMessage());
                 }
                 
-                final ServiceHook<HttpServlet> hook;
+                final ServiceHook<HttpServer> hook;
                 try {
                     hook = findCorrectHook(service);
                 } catch (ServiceException ex) {
@@ -67,12 +67,17 @@ public abstract class HttpServlet {
         };
     }
     
-    public HttpServlet start() throws IOException {
+    public HttpServer start() throws IOException {
         server.start();
         return this;
     }
     
-    public Stream<ServiceHook<HttpServlet>> services() {
+    public HttpServer stop() {
+        server.stop();
+        return this;
+    }
+    
+    private Stream<ServiceHook<HttpServer>> services() {
         return Stream.of(getClass().getMethods())
             .filter(m -> m.getAnnotation(Service.class) != null)
             .map(m -> ServiceHook.create(this, m));
@@ -89,7 +94,7 @@ public abstract class HttpServlet {
             ));
     }
     
-    private ServiceHook<HttpServlet> findCorrectHook(String service) throws ServiceException {
+    private ServiceHook<HttpServer> findCorrectHook(String service) throws ServiceException {
         return services()
             .filter(sh -> sh.getName().equals(service))
             .findAny().orElseThrow(

@@ -24,12 +24,14 @@ import java.util.Map;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import java.util.stream.Stream;
+import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 /**
  *
  * @author Emil Forslund
  */
-public class ServiceHook<T extends HttpServlet> {
+public class ServiceHook<T extends HttpServer> {
     
     private final T servlet;
     private final Method method;
@@ -79,7 +81,7 @@ public class ServiceHook<T extends HttpServlet> {
         return gson.toJson(result);
     }
     
-    public static <T extends HttpServlet> ServiceHook<T> create(T servlet, Method method) {
+    public static <T extends HttpServer> ServiceHook<T> create(T servlet, Method method) {
         return new ServiceHook<>(servlet, method);
     }
 
