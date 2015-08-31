@@ -18,7 +18,7 @@ import java.util.Map;
  */
 public final class JsonEncoder implements Encoder {
 
-    private final static String MIME = "application/x-json";
+    private final static String MIME = "application/json";
 
     @Override
     public <T> String apply(Map<String, Object> params, T response) {
