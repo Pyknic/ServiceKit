@@ -16,94 +16,121 @@
 package com.pyknic.servicekit;
 
 import com.google.gson.Gson;
+import com.pyknic.servicekit.encode.Encoder;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 import java.util.stream.Stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 /**
+ * A representation of a {@code Method} that contains additional methods for
+ * working as a http service. A hook can only be instantiated by the server
+ * that it serves.
  *
- * @author Emil Forslund
+ * @author     Emil Forslund
+ * @param <T>  the server type
  */
-public class ServiceHook<T extends HttpServer> {
+public final class ServiceHook<T extends HttpServer> {
     
-    private final T servlet;
+    private final T server;
     private final Method method;
-    
-    private ServiceHook(T servlet, Method method) {
-        this.servlet = requireNonNull(servlet);
-        this.method  = requireNonNull(method);
-    }
-    
-    public String getName() {
-        return method.getName().toLowerCase();
-    }
-    
-    public String getSignature() {
-        return "(" + Stream.of(method.getParameterTypes())
-            .map(t -> t.getSimpleName())
-            .collect(joining(", ")) + ")";
-    }
-    
-    public String call(Map<String, String> params) throws ServiceException {
 
-        final Gson gson = new Gson();
-        final Object[] args = Stream.of(method.getParameters())
-            .map(p -> {
-                final Class<?> type = p.getType();
-                final String jsonValue;
-                try {
-                    jsonValue = getArgument(p, params);
-                } catch (ServiceException ex) {
-                    throw new RuntimeException(ex);
-                }
-                final Object arg = gson.fromJson(jsonValue, type);
-                return arg;
-            })
-            .toArray();
-
-        final Object result;
-        try {
-            result = method.invoke(servlet, args);
-        } catch (IllegalAccessException | InvocationTargetException ex) {
-            throw new ServiceException(
-                "Method '" + method.getName() + 
-                "' in servlet '" + servlet.getClass().getSimpleName() + 
-                "' could not be executed with signature '" + getSignature() + "'.");
-        }
-        
-        return gson.toJson(result);
-    }
-    
-    public static <T extends HttpServer> ServiceHook<T> create(T servlet, Method method) {
+    static <T extends HttpServer> ServiceHook<T> create(T servlet, Method method) {
         return new ServiceHook<>(servlet, method);
     }
 
-    private String getArgument(Parameter param, Map<String, String> params) throws ServiceException {
+    public String getName() {
+        return method.getName().toLowerCase();
+    }
+
+    public Encoder getEncoder() throws ServiceException {
+        try {
+            return getService().encoder().newInstance();
+        } catch (NullPointerException ex) {
+            throw new ServiceException(
+                "Encoder '" + getService().encoder().getSimpleName() +
+                    "' specified in service '" + method.getName() +
+                    "' in server '" + server.getClass().getSimpleName() +
+                    "' with service signature '" + getSignature() +
+                    "' is null.",
+                ex
+            );
+        } catch (IllegalAccessException | InstantiationException ex) {
+            throw new ServiceException(
+                "Encoder '" + getService().encoder().getSimpleName() +
+                    "' specified in service '" + method.getName() +
+                    "' in server '" + server.getClass().getSimpleName() +
+                    "' with service signature '" + getSignature() +
+                    "' is not instantiatable using it's default constructor.",
+                ex
+            );
+        }
+    }
+
+    public Service getService() throws ServiceException {
+        final Service service = method.getAnnotation(Service.class);
+
+        if (service == null) {
+            throw new ServiceException(
+                "Parameter names are not present in build. Enable parameter " +
+                    "names in project pom.xml-file or specify the names as arguments " +
+                    "to the 'Service'-annotation to use ServiceKit."
+            );
+        }
+
+        return service;
+    }
+
+    @Override
+    public String toString() {
+        return getName() + "::" + getSignature();
+    }
+
+    String call(Map<String, String> params) throws ServiceException {
+        final Gson gson = new Gson();
+        final Map<String, Object> args = new LinkedHashMap<>();
+
+        Stream.of(method.getParameters())
+            .forEachOrdered(p -> {
+                final Argument arg = toArgument(p, params, gson);
+                args.put(arg.name, arg.value);
+            });
+
+        final Object result;
+        try {
+            result = method.invoke(server, args.values().toArray());
+        } catch (IllegalAccessException | InvocationTargetException ex) {
+            throw new ServiceException(
+                "Service '" + method.getName() +
+                    "' in server '" + server.getClass().getSimpleName() +
+                    "' could not be executed with signature '" + getSignature() + "'.",
+                ex
+            );
+        }
+
+        return getEncoder().apply(args, result);
+    }
+
+    private String getSignature() {
+        return "(" + Stream.of(method.getParameterTypes())
+            .map(Class::getSimpleName)
+            .collect(joining(", ")) + ")";
+    }
+
+    private Argument toArgument(Parameter param, Map<String, String> params, Gson gson) throws ServiceException {
 
         final String paramName;
         
         if (param.isNamePresent()) {
             paramName = param.getName().toLowerCase();
         } else {
-            method.getAnnotations();
-            final Service service = method.getAnnotation(Service.class);
-
-            if (service == null) {
-                throw new ServiceException(
-                    "Parameter names are not present in build. Enable parameter " +
-                    "names in project pom.xml-file or specify the names as arguments " +
-                    "to the 'Service'-annotation to use ServiceKit."
-                );
-            }
-            
-            final String[] paramNames = service.value();
+            final String[] paramNames = getService().params();
             final int index = Arrays.asList(method.getParameters()).indexOf(param);
 
             if (index >= 0 && index < paramNames.length) {
@@ -119,16 +146,28 @@ public class ServiceHook<T extends HttpServer> {
         return params.entrySet().stream()
             .filter(e -> paramName.equals(e.getKey().toLowerCase()))
             .map(Map.Entry::getValue)
+            .map(json -> gson.fromJson(json, param.getType()))
+            .map(obj -> new Argument(paramName, obj))
             .findAny()
             .orElseThrow(() -> new ServiceException(
-                "Parameter '" + paramName + 
-                "' of type '" + param.getType().getSimpleName() + 
-                "' is missing in call to service '" + method.getName() + "'."
+                "Parameter '" + paramName +
+                    "' of type '" + param.getType().getSimpleName() +
+                    "' is missing in call to service '" + method.getName() + "'."
             ));
     }
 
-    @Override
-    public String toString() {
-        return getName() + " " + getSignature();
+    private static class Argument {
+        private final String name;
+        private final Object value;
+
+        private Argument(String name, Object value) {
+            this.name  = name;
+            this.value = value;
+        }
+    }
+
+    private ServiceHook(T server, Method method) {
+        this.server = requireNonNull(server);
+        this.method = requireNonNull(method);
     }
 }

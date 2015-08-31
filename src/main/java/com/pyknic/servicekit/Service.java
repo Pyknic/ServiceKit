@@ -15,6 +15,9 @@
  */
 package com.pyknic.servicekit;
 
+import com.pyknic.servicekit.encode.Encoder;
+import com.pyknic.servicekit.encode.JsonEncoder;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -22,12 +25,27 @@ import java.lang.annotation.Target;
 
 /**
  * Annotates the specified method as a http-service that should be accessible
- * online. Service-methods should be members to a <code>HttpServlet</code>-class.
+ * online. Service-methods should be members to a {@link HttpServer}-class.
  * 
  * @author Emil Forslund
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface Service {
-    String[] value() default {};
+    /**
+     * A list of the names of the parameters of this method. This will be used
+     * to match GET parameters to specific input variables. Variable names can
+     * not be safely retrieved using reflection since that information might be
+     * removed during compilation.
+     *
+     * @return  a list of the names of the method parameters
+     */
+    String[] params() default {};
+
+    /**
+     * This value signals which {@link Encoder} to use when converting the output
+     * value of the annoted service to a string that can be sent to the user.
+     * @return
+     */
+    Class<? extends Encoder> encoder() default JsonEncoder.class;
 }

@@ -24,13 +24,26 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 /**
+ * Abstract super class for HTTP servers. To use ServiceKit, create a subclass to
+ * {@code HttpServer} and attach a {@link Service} annotation to all methods that
+ * should be accessible over standard http.
+ * <p>
+ * This project uses the NanoHTTPD library by {@url https://github.com/elonen elonen}.
  *
- * @author Emil Forslund
+ * @author  Emil Forslund
+ * @see     {@url https://github.com/NanoHttpd/nanohttpd}
  */
 public abstract class HttpServer {
 
     private final NanoHTTPD server;
-    
+
+    /**
+     * Creates a new HTTP server, parsing the subclass of this for methods annoted
+     * using the {@link Service} annotation. To launch the server you must still call
+     * {@link ::start()}.
+     *
+     * @param port  the port to open this server on
+     */
     protected HttpServer(int port) {
         server = new NanoHTTPD(port) {
 
@@ -39,7 +52,7 @@ public abstract class HttpServer {
                 final URI uri;
                 final Map<String, String> params;
                 final String service;
-                
+
                 try {
                     uri     = new URI(session.getUri());
                     params  = session.getParms();
@@ -47,37 +60,53 @@ public abstract class HttpServer {
                 } catch (URISyntaxException | ServiceException ex) {
                     return new Response(Status.BAD_REQUEST, "text/plain", ex.getMessage());
                 }
-                
+
                 final ServiceHook<HttpServer> hook;
                 try {
                     hook = findCorrectHook(service);
                 } catch (ServiceException ex) {
                     return new Response(Status.NOT_FOUND, "text/plain", ex.getMessage());
                 }
-                
+
                 final String result;
+
                 try {
                     result = hook.call(params);
                 } catch (Exception ex) {
-                    return new Response(Status.INTERNAL_ERROR, "text/plain", ex.getMessage());
+                    return new Response(
+                        Status.INTERNAL_ERROR, "text/plain", ex.getMessage());
                 }
-                
-                return new Response(Status.OK, "application/json", result);
+
+                return new Response(Status.OK, hook.getEncoder().getMimeType(), result);
             }
         };
     }
-    
-    public HttpServer start() throws IOException {
+
+    /**
+     * Starts the server. The operation could fail for an example if the port specified
+     * in the constructor is already used by some other application.
+     *
+     * @return              a reference to this
+     * @throws IOException  if the instantiation failed
+     * @see                 NanoHTTPD::start()
+     */
+    public final HttpServer start() throws IOException {
         server.start();
         return this;
     }
-    
-    public HttpServer stop() {
+
+    /**
+     * Stops the server.
+     *
+     * @return  a reference to this
+     * @see     NanoHTTPD::stop()
+     */
+    public final HttpServer stop() {
         server.stop();
         return this;
     }
     
-    private Stream<ServiceHook<HttpServer>> services() {
+    private Stream<ServiceHook<HttpServer>> serviceHooks() {
         return Stream.of(getClass().getMethods())
             .filter(m -> m.getAnnotation(Service.class) != null)
             .map(m -> ServiceHook.create(this, m));
@@ -95,7 +124,7 @@ public abstract class HttpServer {
     }
     
     private ServiceHook<HttpServer> findCorrectHook(String service) throws ServiceException {
-        return services()
+        return serviceHooks()
             .filter(sh -> sh.getName().equals(service))
             .findAny().orElseThrow(
                 () -> new ServiceException(

@@ -16,11 +16,16 @@
 package com.pyknic.servicekit;
 
 /**
+ * An exception thrown when processing a call to a service.
  *
  * @author Emil Forslund
  */
-public class ServiceException extends Exception {
+public class ServiceException extends RuntimeException {
     public ServiceException(String message) {
         super (message);
+    }
+
+    public ServiceException(String message, Throwable thrw) {
+        super (message, thrw);
     }
 }
