@@ -96,7 +96,7 @@ http://example.com:1234/favoriteCar
 ```
 
 ### You can use a custom encoder to format output
-In JSONP, the output should be passed to javascript function of a particular name. (Learn more here!)[https://en.wikipedia.org/wiki/JSONP]
+In JSONP, the output should be passed to javascript function of a particular name. [Learn more here!](https://en.wikipedia.org/wiki/JSONP)
 
 ```java
 class Car {
