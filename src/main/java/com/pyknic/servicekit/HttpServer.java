@@ -159,12 +159,12 @@ public abstract class HttpServer {
             );
         }
 
-        System.out.println("Server started, Hit Enter to stop.\n");
+        System.out.println("Server started, Hit Enter to stop.");
 
         try {System.in.read();} 
         catch (Throwable ignored) {}
 
         server.stop();
-        System.out.println("Server stopped.\n");
+        System.out.println("Server stopped.");
     }
 }
