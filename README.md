@@ -5,7 +5,7 @@ A lightweight java-library that use annotations to create web-services from ordi
 To create a new server using ServiceKit, create a new class and extend `HttpServlet`. Once you execute the inherited `start()`-method, every request to annoted `@Service`-methods will be handled automatically.
 
 ```java
-class ExampleServer extends HttpServlet {
+class ExampleServer extends HttpServer {
     public ExampleServlet() {
         super (1234);
         start();
