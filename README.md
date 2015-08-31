@@ -6,7 +6,7 @@ To create a new server using ServiceKit, create a new class and extend `HttpServ
 
 ```java
 class ExampleServer extends HttpServer {
-    public ExampleServlet() {
+    public ExampleServer() {
         super (1234);
         start();
     }
