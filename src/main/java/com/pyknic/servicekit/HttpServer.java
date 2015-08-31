@@ -17,6 +17,7 @@ package com.pyknic.servicekit;
 
 import fi.iki.elonen.NanoHTTPD;
 import fi.iki.elonen.NanoHTTPD.Response.Status;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -35,6 +36,7 @@ import java.util.stream.Stream;
  */
 public abstract class HttpServer {
 
+    private final int port;
     private final NanoHTTPD server;
 
     /**
@@ -45,7 +47,8 @@ public abstract class HttpServer {
      * @param port  the port to open this server on
      */
     protected HttpServer(int port) {
-        server = new NanoHTTPD(port) {
+        this.port = port;
+        this.server = new NanoHTTPD(port) {
 
             @Override
             public Response serve(IHTTPSession session) {
@@ -131,5 +134,37 @@ public abstract class HttpServer {
                     "The specified service '" + service + "' could not be found."
                 )
             );
+    }
+    
+    public static <T extends HttpServer> void run(Class<T> serverClass) throws ServiceException {
+        final HttpServer server;
+        
+        try {
+            server = serverClass.newInstance();
+        } catch (InstantiationException | IllegalAccessException ex) {
+            throw new ServiceException(
+                "Server class '" + serverClass.getSimpleName() + 
+                "' could not be instantiated with default constructor.",
+                ex
+            );
+        }
+        
+        try {
+            server.start();
+        } catch (IOException ex) {
+            throw new ServiceException(
+                "Server '" + serverClass.getSimpleName() + 
+                "' could not be started on port '" + server.port + "'.", 
+                ex
+            );
+        }
+
+        System.out.println("Server started, Hit Enter to stop.\n");
+
+        try {System.in.read();} 
+        catch (Throwable ignored) {}
+
+        server.stop();
+        System.out.println("Server stopped.\n");
     }
 }

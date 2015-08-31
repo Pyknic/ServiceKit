@@ -25,7 +25,9 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Stream;
+
 import static java.util.Objects.requireNonNull;
+import java.util.Optional;
 import static java.util.stream.Collectors.joining;
 
 /**
@@ -130,7 +132,7 @@ public final class ServiceHook<T extends HttpServer> {
         if (param.isNamePresent()) {
             paramName = param.getName().toLowerCase();
         } else {
-            final String[] paramNames = getService().params();
+            final String[] paramNames = getService().value();
             final int index = Arrays.asList(method.getParameters()).indexOf(param);
 
             if (index >= 0 && index < paramNames.length) {
@@ -149,11 +151,17 @@ public final class ServiceHook<T extends HttpServer> {
             .map(json -> gson.fromJson(json, param.getType()))
             .map(obj -> new Argument(paramName, obj))
             .findAny()
-            .orElseThrow(() -> new ServiceException(
-                "Parameter '" + paramName +
-                    "' of type '" + param.getType().getSimpleName() +
-                    "' is missing in call to service '" + method.getName() + "'."
-            ));
+            .orElseGet(() -> {
+                if (Optional.class.isAssignableFrom(param.getType())) {
+                    return new Argument(paramName, Optional.empty());
+                } else {
+                    throw new ServiceException(
+                        "Parameter '" + paramName +
+                            "' of type '" + param.getType().getSimpleName() +
+                            "' is missing in call to service '" + method.getName() + "'."
+                    );
+                }
+            });
     }
 
     private static class Argument {

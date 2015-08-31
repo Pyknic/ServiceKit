@@ -40,7 +40,7 @@ public @interface Service {
      *
      * @return  a list of the names of the method parameters
      */
-    String[] params() default {};
+    String[] value() default {};
 
     /**
      * This value signals which {@link Encoder} to use when converting the output
