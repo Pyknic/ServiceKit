@@ -75,7 +75,8 @@ public abstract class HttpServer {
 
                 try {
                     result = hook.call(params);
-                } catch (Exception ex) {
+                } catch (ServiceException ex) {
+                    ex.printStackTrace();
                     return new Response(
                         Status.INTERNAL_ERROR, "text/plain", ex.getMessage());
                 }

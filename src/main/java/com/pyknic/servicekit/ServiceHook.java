@@ -97,7 +97,7 @@ public final class ServiceHook<T extends HttpServer> {
     String call(Map<String, String> params) throws ServiceException {
         final Gson gson = new Gson();
         final Map<String, Object> args = new LinkedHashMap<>();
-
+        
         Stream.of(method.getParameters())
             .forEachOrdered(p -> {
                 final Argument arg = toArgument(p, params, gson);
@@ -111,7 +111,8 @@ public final class ServiceHook<T extends HttpServer> {
             throw new ServiceException(
                 "Service '" + method.getName() +
                     "' in server '" + server.getClass().getSimpleName() +
-                    "' could not be executed with signature '" + getSignature() + "'.",
+                    "' could not be executed with signature '" + getSignature() + 
+                    "' and values '" + args.values().toString() + "'.",
                 ex
             );
         }
@@ -136,7 +137,7 @@ public final class ServiceHook<T extends HttpServer> {
             final int index = Arrays.asList(method.getParameters()).indexOf(param);
 
             if (index >= 0 && index < paramNames.length) {
-                paramName = paramNames[index];
+                paramName = paramNames[index].toLowerCase();
             } else {
                 throw new ServiceException(
                     "Parameter names are not present in build and does not " +
@@ -148,17 +149,17 @@ public final class ServiceHook<T extends HttpServer> {
         return params.entrySet().stream()
             .filter(e -> paramName.equals(e.getKey().toLowerCase()))
             .map(Map.Entry::getValue)
-            .map(json -> gson.fromJson(json, param.getType()))
-            .map(obj -> new Argument(paramName, obj))
             .findAny()
+            .map(json -> gson.fromJson(json, param.getParameterizedType()))
+            .map(obj -> new Argument(paramName, obj))
             .orElseGet(() -> {
                 if (Optional.class.isAssignableFrom(param.getType())) {
                     return new Argument(paramName, Optional.empty());
                 } else {
                     throw new ServiceException(
                         "Parameter '" + paramName +
-                            "' of type '" + param.getType().getSimpleName() +
-                            "' is missing in call to service '" + method.getName() + "'."
+                        "' of type '" + param.getType().getSimpleName() +
+                        "' is missing in call to service '" + method.getName() + "'."
                     );
                 }
             });
