@@ -15,6 +15,8 @@
  */
 package com.pyknic.servicekit;
 
+import com.pyknic.servicekit.cache.Cache;
+import com.pyknic.servicekit.cache.NoCache;
 import com.pyknic.servicekit.encode.Encoder;
 import com.pyknic.servicekit.encode.JsonEncoder;
 
@@ -45,7 +47,19 @@ public @interface Service {
     /**
      * This value signals which {@link Encoder} to use when converting the output
      * value of the annoted service to a string that can be sent to the user.
-     * @return
+     * The implementation must have a default constructor with no parameters so 
+     * that it can be instantiated using reflection.
+     * 
+     * @return  the encoder type
      */
     Class<? extends Encoder> encoder() default JsonEncoder.class;
+    
+    /**
+     * This value signals which {@link Cache} to use when storing responses
+     * already calculated. The implementation must have a default constructor
+     * with no parameters so that it can be instantiated using reflection.
+     * 
+     * @return  the cache type
+     */
+    Class<? extends Cache> cache() default NoCache.class;
 }

@@ -22,6 +22,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -38,6 +40,7 @@ public abstract class HttpServer {
 
     private final int port;
     private final NanoHTTPD server;
+    private final Map<String, ServiceHook<HttpServer>> hooks;
 
     /**
      * Creates a new HTTP server, parsing the subclass of this for methods annoted
@@ -72,11 +75,13 @@ public abstract class HttpServer {
                 }
 
                 final String result;
-
+                
                 try {
-                    result = hook.call(params);
+                    result = hook.getCache().get(session.getQueryParameterString(), 
+                        u -> hook.call(params)
+                    );
                 } catch (ServiceException ex) {
-                    ex.printStackTrace();
+                    System.err.println(ex.getMessage());
                     return new Response(
                         Status.INTERNAL_ERROR, "text/plain", ex.getMessage());
                 }
@@ -84,6 +89,8 @@ public abstract class HttpServer {
                 return new Response(Status.OK, hook.getEncoder().getMimeType(), result);
             }
         };
+        
+        hooks = createServiceHooks();
     }
 
     /**
@@ -110,10 +117,11 @@ public abstract class HttpServer {
         return this;
     }
     
-    private Stream<ServiceHook<HttpServer>> serviceHooks() {
+    private Map<String, ServiceHook<HttpServer>> createServiceHooks() {
         return Stream.of(getClass().getMethods())
             .filter(m -> m.getAnnotation(Service.class) != null)
-            .map(m -> ServiceHook.create(this, m));
+            .map(m -> ServiceHook.create(this, m))
+            .collect(Collectors.toMap(e -> e.getName(), e -> e));
     }
     
     private String parseURIForService(URI uri) throws ServiceException {
@@ -126,11 +134,10 @@ public abstract class HttpServer {
                 "No service specified in uri: '" + uri.toString() + "'."
             ));
     }
-    
+
     private ServiceHook<HttpServer> findCorrectHook(String service) throws ServiceException {
-        return serviceHooks()
-            .filter(sh -> sh.getName().equals(service))
-            .findAny().orElseThrow(
+        return Optional.ofNullable(hooks.get(service))
+            .orElseThrow(
                 () -> new ServiceException(
                     "The specified service '" + service + "' could not be found."
                 )

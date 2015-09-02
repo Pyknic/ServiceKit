@@ -16,6 +16,7 @@
 package com.pyknic.servicekit;
 
 import com.google.gson.Gson;
+import com.pyknic.servicekit.cache.Cache;
 import com.pyknic.servicekit.encode.Encoder;
 
 import java.lang.reflect.InvocationTargetException;
@@ -42,6 +43,7 @@ public final class ServiceHook<T extends HttpServer> {
     
     private final T server;
     private final Method method;
+    private final Cache cache;
 
     static <T extends HttpServer> ServiceHook<T> create(T servlet, Method method) {
         return new ServiceHook<>(servlet, method);
@@ -57,22 +59,26 @@ public final class ServiceHook<T extends HttpServer> {
         } catch (NullPointerException ex) {
             throw new ServiceException(
                 "Encoder '" + getService().encoder().getSimpleName() +
-                    "' specified in service '" + method.getName() +
-                    "' in server '" + server.getClass().getSimpleName() +
-                    "' with service signature '" + getSignature() +
-                    "' is null.",
+                "' specified in service '" + method.getName() +
+                "' in server '" + server.getClass().getSimpleName() +
+                "' with service signature '" + getSignature() +
+                "' is null.",
                 ex
             );
         } catch (IllegalAccessException | InstantiationException ex) {
             throw new ServiceException(
                 "Encoder '" + getService().encoder().getSimpleName() +
-                    "' specified in service '" + method.getName() +
-                    "' in server '" + server.getClass().getSimpleName() +
-                    "' with service signature '" + getSignature() +
-                    "' is not instantiatable using it's default constructor.",
+                "' specified in service '" + method.getName() +
+                "' in server '" + server.getClass().getSimpleName() +
+                "' with service signature '" + getSignature() +
+                "' is not instantiatable using it's default constructor.",
                 ex
             );
         }
+    }
+    
+    public Cache getCache() {
+        return cache;
     }
 
     public Service getService() throws ServiceException {
@@ -81,8 +87,8 @@ public final class ServiceHook<T extends HttpServer> {
         if (service == null) {
             throw new ServiceException(
                 "Parameter names are not present in build. Enable parameter " +
-                    "names in project pom.xml-file or specify the names as arguments " +
-                    "to the 'Service'-annotation to use ServiceKit."
+                "names in project pom.xml-file or specify the names as arguments " +
+                "to the 'Service'-annotation to use ServiceKit."
             );
         }
 
@@ -175,8 +181,19 @@ public final class ServiceHook<T extends HttpServer> {
         }
     }
 
-    private ServiceHook(T server, Method method) {
+    private ServiceHook(T server, Method method) throws ServiceException {
         this.server = requireNonNull(server);
         this.method = requireNonNull(method);
+        
+        try {
+            this.cache  = getService().cache().newInstance();
+        } catch (InstantiationException | IllegalAccessException ex) {
+            throw new ServiceException(
+                "Could not instantiate suggested cache '" +
+                getService().cache().getSimpleName()
+                + "'. Maybe the default constructor is not accessible?", 
+                ex
+            );
+        }
     }
 }
