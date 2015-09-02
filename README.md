@@ -119,3 +119,38 @@ public Car favoriteCar(String callback) {
 http://example.com:1234/favoriteCar?callback=myCallbackMethod
 -> myCallbackMethod({ name : "Tesla", cost : 80000});
 ```
+
+### Straight-forward error handling
+```java
+final Item[] items;
+...
+@Service({"index"})
+public Item findItem(int index) {
+    if (index < 0 || index >= items.length) {
+        throw new HttpResponseException(
+            Status.BAD_REQUEST, 
+            "Requested item index is out of bounds."
+        );
+    }
+        
+    return items[index];
+}
+```
+
+```
+http://example.com:1234/findItem?index=-47
+-> 400 BAD REQUEST: Requested item index is out of bounds.
+```
+
+### (Optional) Fast caching
+If a cache is specified in the annotation it can reduce load on the server significally. The annoted method will only be called once for each set of input. The BasicCache-class is setup so that values will be overwritten each hour.
+
+```java
+@Service({"year"}, cache = BasicCache.class)
+public Item totalUsageTime(int year) { 
+    return usage.stream()
+        .filter(u -> u.getYear() == year)
+        .mapToInt(u -> u.getTime())
+        .sum();
+}
+```
