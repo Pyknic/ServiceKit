@@ -80,6 +80,8 @@ public abstract class HttpServer {
                     result = hook.getCache().get(session.getQueryParameterString(), 
                         u -> hook.call(params)
                     );
+                } catch (HttpResponseException ex) {
+                    return ex.createResponse();
                 } catch (ServiceException ex) {
                     System.err.println(ex.getMessage());
                     return new Response(

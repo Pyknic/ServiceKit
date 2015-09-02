@@ -18,6 +18,8 @@ package com.pyknic.servicekit;
 import com.google.gson.Gson;
 import com.pyknic.servicekit.cache.Cache;
 import com.pyknic.servicekit.encode.Encoder;
+import fi.iki.elonen.NanoHTTPD;
+import fi.iki.elonen.NanoHTTPD.Response.Status;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -113,12 +115,26 @@ public final class ServiceHook<T extends HttpServer> {
         final Object result;
         try {
             result = method.invoke(server, args.values().toArray());
-        } catch (IllegalAccessException | InvocationTargetException ex) {
+        } catch (InvocationTargetException ex) {
+            final Throwable thrw = Optional.ofNullable(ex.getCause()).orElse(ex);
+            if (thrw instanceof HttpResponseException) {
+                @SuppressWarnings("unchecked")
+                final HttpResponseException httpThrw = (HttpResponseException) thrw;
+                throw httpThrw;
+            } else {
+                throw new HttpResponseException(Status.INTERNAL_ERROR, 
+                    "Service '" + method.getName() +
+                    "' in server '" + server.getClass().getSimpleName() +
+                    "' casted an exception of type '" + 
+                    thrw.getClass().getSimpleName() + "'."
+                );
+            }
+        } catch (IllegalAccessException | IllegalArgumentException ex) {
             throw new ServiceException(
                 "Service '" + method.getName() +
-                    "' in server '" + server.getClass().getSimpleName() +
-                    "' could not be executed with signature '" + getSignature() + 
-                    "' and values '" + args.values().toString() + "'.",
+                "' in server '" + server.getClass().getSimpleName() +
+                "' could not be executed with signature '" + getSignature() + 
+                "' and values '" + args.values().toString() + "'.",
                 ex
             );
         }
