@@ -105,8 +105,11 @@ public abstract class HttpServer {
      */
     public final HttpServer start() throws IOException {
         server.start();
+        onStarted();
         return this;
     }
+    
+    public void onStarted() {}
 
     /**
      * Stops the server.
@@ -116,8 +119,11 @@ public abstract class HttpServer {
      */
     public final HttpServer stop() {
         server.stop();
+        onStopped();
         return this;
     }
+    
+    public void onStopped() {}
     
     private Map<String, ServiceHook<HttpServer>> createServiceHooks() {
         return Stream.of(getClass().getMethods())
@@ -173,8 +179,10 @@ public abstract class HttpServer {
 
         try {System.in.read();} 
         catch (Throwable ignored) {}
-
-        server.stop();
+        finally {
+            server.stop();
+        }
+        
         System.out.println("Server stopped.");
     }
 }

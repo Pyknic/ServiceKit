@@ -18,7 +18,6 @@ package com.pyknic.servicekit;
 import com.google.gson.Gson;
 import com.pyknic.servicekit.cache.Cache;
 import com.pyknic.servicekit.encode.Encoder;
-import fi.iki.elonen.NanoHTTPD;
 import fi.iki.elonen.NanoHTTPD.Response.Status;
 
 import java.lang.reflect.InvocationTargetException;
@@ -122,6 +121,7 @@ public final class ServiceHook<T extends HttpServer> {
                 final HttpResponseException httpThrw = (HttpResponseException) thrw;
                 throw httpThrw;
             } else {
+                thrw.printStackTrace();
                 throw new HttpResponseException(Status.INTERNAL_ERROR, 
                     "Service '" + method.getName() +
                     "' in server '" + server.getClass().getSimpleName() +
